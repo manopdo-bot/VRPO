@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Settings as SettingsIcon, Map as MapIcon, Play, Plus, Trash2, Route as RouteIcon, Truck, MapPin, BarChart3, Download, Calendar, DollarSign } from 'lucide-react';
+import { Settings as SettingsIcon, Map as MapIcon, Play, Plus, Trash2, Route as RouteIcon, Truck, MapPin, BarChart3, Download, Calendar, DollarSign, Save, Upload, RefreshCw } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Node, Route, Vehicle } from './types';
 import { calculateDistance, solveVRP } from './solver';
@@ -109,6 +109,41 @@ export default function App() {
     setVehicles(vehicles.filter(v => v.id !== id));
   };
 
+  const exportConfig = () => {
+    const configData = {
+      nodes,
+      vehicles,
+      deliveryDate
+    };
+    const jsonContent = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(configData, null, 2));
+    const link = document.createElement('a');
+    link.setAttribute('href', jsonContent);
+    link.setAttribute('download', `vrp_config_${deliveryDate}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const importConfig = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const data = JSON.parse(content);
+        if (data.nodes) setNodes(data.nodes);
+        if (data.vehicles) setVehicles(data.vehicles);
+        if (data.deliveryDate) setDeliveryDate(data.deliveryDate);
+        setRoutes([]);
+      } catch (err) {
+        alert("Invalid configuration file");
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  };
+
   const exportCSV = () => {
     if (routes.length === 0) return;
     const headers = ['Date', 'Vehicle', 'Capacity', 'Distance (km)', 'Load', 'Fuel Cost (THB)', 'Driver Wage (THB)', 'Other Expenses (THB)', 'Total Cost (THB)', 'Route Path'];
@@ -201,11 +236,24 @@ export default function App() {
       {/* Left Sidebar */}
       <div className="w-1/3 min-w-[420px] max-w-[600px] bg-white border-r border-gray-200 flex flex-col shadow-lg z-10">
         <div className="p-6 border-b border-gray-200 bg-indigo-600 text-white">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <RouteIcon className="w-6 h-6" />
-            VRP Optimizer Pro
-          </h1>
-          <p className="text-indigo-100 text-sm mt-1">Smart Routing with Cost Analysis</p>
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl font-bold flex items-center gap-2">
+                <RouteIcon className="w-6 h-6" />
+                VRP Optimizer Pro
+              </h1>
+              <p className="text-indigo-100 text-sm mt-1">Smart Routing with Cost Analysis</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={exportConfig} className="p-2 bg-indigo-500 hover:bg-indigo-400 rounded-md transition-colors" title="Save Configuration">
+                <Save className="w-4 h-4" />
+              </button>
+              <label className="p-2 bg-indigo-500 hover:bg-indigo-400 rounded-md transition-colors cursor-pointer" title="Load Configuration">
+                <Upload className="w-4 h-4" />
+                <input type="file" accept=".json" className="hidden" onChange={importConfig} />
+              </label>
+            </div>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -500,10 +548,17 @@ export default function App() {
         </div>
 
         {/* Bottom Action Bar */}
-        <div className="p-4 border-t border-gray-200 bg-white">
+        <div className="p-4 border-t border-gray-200 bg-white flex gap-2">
+          <button 
+            onClick={() => { setRoutes([]); setActiveTab('nodes'); }}
+            className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
+            title="Clear Results & Edit"
+          >
+            <RefreshCw className="w-5 h-5" />
+          </button>
           <button 
             onClick={handleSolve}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
           >
             <Play className="w-5 h-5" />
             Solve VRP & Calculate Costs
